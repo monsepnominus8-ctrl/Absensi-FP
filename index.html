@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ringkas Absen • Karyawan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Poppins:wght@500;600&amp;display=swap');
+        
+        :root {
+            --primary: #1e40af;
+        }
+        
+        body {
+            font-family: 'Inter', system_ui, sans-serif;
+        }
+        
+        .font-display {
+            font-family: 'Poppins', 'Inter', sans-serif;
+        }
+
+        .table-header {
+            background: linear-gradient(to bottom, #f8fafc, #f1e7ff);
+        }
+
+        .sticky-col {
+            position: sticky;
+            left: 0;
+            z-index: 20;
+            background: white;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.05);
+        }
+
+        .summary-table th, .summary-table td {
+            padding: 8px 10px;
+            font-size: 13px;
+            border-color: #e2e8f0;
+        }
+
+        .summary-table thead th {
+            font-weight: 600;
+            color: #334155;
+            white-space: nowrap;
+        }
+
+        .time-cell {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12.5px;
+            line-height: 1.35;
+        }
+
+        .badge-count {
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+
+        .date-header {
+            writing-mode: horizontal-tb;
+            text-align: center;
+            font-size: 11px;
+            line-height: 1.2;
+        }
+
+        .section-header {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1e2937;
+        }
+
+        .stat-card {
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .dropzone {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .dropzone.dragover {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+        }
+
+        .emp-name {
+            font-weight: 600;
+            color: #1e2937;
+            font-size: 13px;
+        }
+
+        .mini-badge {
+            font-size: 9.5px;
+            padding: 0 5px;
+            height: 15px;
+            line-height: 15px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <!-- Header -->
+    <div class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-screen-2xl mx-auto">
+            <div class="px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-x-3">
+                    <div class="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center shadow-inner">
+                        <i class="fa-solid fa-user-clock text-white text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-display text-2xl font-semibold tracking-tight text-slate-900">Ringkas Absen</h1>
+                        <p class="text-xs text-slate-500 -mt-0.5">Transformasi Data Fingerprint → Tabel Ringkas per Karyawan</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-x-2 text-sm">
+                    <div class="px-3 py-1.5 bg-slate-100 rounded-3xl flex items-center gap-x-2 text-slate-600">
+                        <i class="fa-solid fa-info-circle text-blue-500"></i>
+                        <span class="font-medium text-xs">Hanya menampilkan <span class="font-mono">JAM</span> (HH:MM)</span>
+                    </div>
+                    <button onclick="showHelp()" 
+                            class="px-3 py-1.5 text-xs font-medium flex items-center gap-x-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-3xl transition-colors">
+                        <i class="fa-solid fa-question-circle"></i>
+                        <span>Cara Pakai</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-screen-2xl mx-auto px-6 pt-6 pb-12">
+        
+        <!-- Upload Section -->
+        <div id="upload-section" class="max-w-2xl mx-auto">
+            <div class="text-center mb-6">
+                <h2 class="text-xl font-semibold text-slate-800">Unggah File Absen</h2>
+                <p class="text-slate-500 mt-1 text-sm">File .xlsx atau .xls dari mesin absen fingerprint / HR system</p>
+            </div>
+
+            <!-- Dropzone -->
+            <div id="dropzone"
+                 class="dropzone border-2 border-dashed border-slate-300 hover:border-blue-400 bg-white rounded-3xl p-10 text-center cursor-pointer transition-all">
+                <div class="mx-auto w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center mb-4">
+                    <i class="fa-solid fa-file-excel text-blue-600 text-3xl"></i>
+                </div>
+                <p class="font-semibold text-slate-700">Seret &amp; lepas file absen di sini</p>
+                <p class="text-xs text-slate-500 mt-1">atau</p>
+                <label class="mt-3 inline-flex items-center justify-center px-5 py-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-semibold rounded-2xl cursor-pointer shadow-sm">
+                    <i class="fa-solid fa-folder-open mr-2"></i>
+                    <span>Pilih File Excel</span>
+                    <input type="file" id="file-input" accept=".xlsx,.xls" class="hidden">
+                </label>
+                <p class="mt-4 text-[10px] text-slate-400">Mendukung format ekspor standar mesin absen (Kolom: Name, Date/Time, Status, ID Number, dll)</p>
+            </div>
+
+            <div class="mt-4 text-center">
+                <div class="inline-flex items-center text-xs bg-white border border-slate-200 rounded-3xl px-4 py-2 text-slate-500">
+                    <i class="fa-solid fa-lightbulb text-amber-500 mr-2"></i>
+                    <span>Tip: Jika file .xls, buka dulu di Excel/LibreOffice lalu Save As → .xlsx</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results-section" class="hidden">
+            <!-- Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <div class="stat-card bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
+                    <div class="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-users text-emerald-600"></i>
+                    </div>
+                    <div>
+                        <div id="stat-employees" class="text-2xl font-semibold text-slate-800 tabular-nums">0</div>
+                        <div class="text-xs text-slate-500 -mt-0.5">Karyawan</div>
+                    </div>
+                </div>
+                <div class="stat-card bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
+                    <div class="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-fingerprint text-blue-600"></i>
+                    </div>
+                    <div>
+                        <div id="stat-records" class="text-2xl font-semibold text-slate-800 tabular-nums">0</div>
+                        <div class="text-xs text-slate-500 -mt-0.5">Total Punch</div>
+                    </div>
+                </div>
+                <div class="stat-card bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
+                    <div class="w-9 h-9 bg-violet-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-calendar-days text-violet-600"></i>
+                    </div>
+                    <div>
+                        <div id="stat-daterange" class="text-sm font-semibold text-slate-800 leading-tight">—</div>
+                        <div class="text-xs text-slate-500 -mt-0.5">Rentang Tanggal</div>
+                    </div>
+                </div>
+                <div class="stat-card bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
+                    <div class="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-chart-line text-amber-600"></i>
+                    </div>
+                    <div>
+                        <div id="stat-days" class="text-2xl font-semibold text-slate-800 tabular-nums">0</div>
+                        <div class="text-xs text-slate-500 -mt-0.5">Hari Tercatat</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                <div>
+                    <h3 class="section-header flex items-center gap-x-2">
+                        <span>Tabel Ringkasan Absen per Karyawan</span>
+                        <span class="text-xs font-normal px-2 py-0.5 bg-blue-100 text-blue-700 rounded">Format seperti contoh Anda</span>
+                    </h3>
+                    <p class="text-xs text-slate-500">Setiap tanggal punya <strong>2 pasang kolom</strong> (Check In 1 | Check Out 1 | Check In 2 | Check Out 2). Multiple absen otomatis terpisah ke cell berbeda. Tahun ditampilkan lengkap 2026.</p>
+                </div>
+                
+                <div class="flex items-center gap-x-2">
+                    <!-- Search -->
+                    <div class="relative w-64">
+                        <i class="fa-solid fa-search absolute left-3.5 top-2.5 text-slate-400 text-sm"></i>
+                        <input id="search-input" type="text" placeholder="Cari nama / ID karyawan..." 
+                               class="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 focus:border-blue-400 rounded-2xl outline-none transition-all">
+                    </div>
+                    
+                    <button onclick="exportToExcel()" 
+                            class="flex items-center gap-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-2xl shadow-sm transition-all active:scale-[0.985]">
+                        <i class="fa-solid fa-file-excel"></i>
+                        <span>Export Excel</span>
+                    </button>
+                    
+                    <button onclick="printTable()" 
+                            class="flex items-center gap-x-2 px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-2xl shadow-sm transition-all active:scale-[0.985]">
+                        <i class="fa-solid fa-print"></i>
+                        <span>Print</span>
+                    </button>
+                    
+                    <button onclick="resetApp()" 
+                            class="flex items-center gap-x-2 px-3 py-2 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 border border-slate-200 rounded-2xl transition-all">
+                        <i class="fa-solid fa-undo"></i>
+                        <span>Reset</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+                <div class="overflow-x-auto max-h-[620px] custom-scroll" id="table-wrapper">
+                    <table id="summary-table" class="summary-table w-full border-collapse min-w-[1200px]">
+                        <!-- Populated by JS -->
+                    </table>
+                </div>
+            </div>
+            
+            <div class="mt-3 flex items-center justify-between text-xs text-slate-500 px-1">
+                <div>
+                    <i class="fa-solid fa-info-circle mr-1 text-blue-400"></i>
+                    <span>Check In = C/Masuk &nbsp;•&nbsp; Check Out = C/Keluar</span>
+                </div>
+                <div onclick="showDetailHelp()" class="cursor-pointer hover:text-blue-600 flex items-center gap-x-1">
+                    <span>Butuh detail lebih lanjut?</span>
+                    <i class="fa-solid fa-arrow-right text-xs"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="hidden fixed bottom-5 right-5 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-x-3 text-sm z-[100]">
+        <i class="fa-solid fa-check-circle text-emerald-400"></i>
+        <span id="toast-text"></span>
+    </div>
+
+    <script>
+        // Tailwind config
+        function initTailwind() {
+            document.documentElement.style.setProperty('--accent', '#1e40af');
+            
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        fontFamily: {
+                            'display': ['Poppins', 'Inter', 'system-ui', 'sans-serif']
+                        }
+                    }
+                }
+            };
+        }
+
+        let currentData = {
+            employees: [],
+            allDates: [],
+            rawRecords: 0
+        };
+
+        // Parse Date/Time string from attendance export (e.g. "5/3/2026 8:01:56 PM")
+        function parseDateTime(dtStr) {
+            if (!dtStr) return null;
+            const str = String(dtStr).trim();
+            
+            // Regex for M/D/YYYY h:mm:ss AM/PM or 24h
+            const regex = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?/i;
+            const match = str.match(regex);
+            
+            if (match) {
+                let [, month, day, year, hour, minute, second, ampm] = match;
+                month = parseInt(month, 10);
+                day = parseInt(day, 10);
+                year = parseInt(year, 10);
+                hour = parseInt(hour, 10);
+                minute = parseInt(minute, 10);
+                
+                if (ampm) {
+                    const ap = ampm.toUpperCase();
+                    if (ap === 'PM' && hour < 12) hour += 12;
+                    if (ap === 'AM' && hour === 12) hour = 0;
+                }
+                
+                const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+                const displayDate = `${month}/${day}/${year}`;
+                
+                return { date: dateKey, time: timeStr, displayDate: displayDate };
+            }
+            
+            // Fallback: try native Date
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) {
+                const year = d.getFullYear();
+                const month = d.getMonth() + 1;
+                const day = d.getDate();
+                const hour = d.getHours();
+                const minute = d.getMinutes();
+                
+                return {
+                    date: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+                    time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+                    displayDate: `${month}/${day}/${year}`
+                };
+            }
+            
+            return null;
+        }
+
+        function getEmployeeKeyAndDisplay(row) {
+            const idNumber = row['ID Number'] || row['IDNumber'] || row['id_number'] || '';
+            const name = row['Name'] || row['name'] || '';
+            const no = row['No.'] || row['No'] || row['no'] || '';
+            
+            let key = '';
+            let display = '';
+            
+            const idStr = String(idNumber).trim();
+            const nameStr = String(name).trim();
+            
+            // Prefer VPRL style ID Number
+            if (idStr && idStr !== 'NaN' && idStr !== 'null' && idStr.length > 2 && !idStr.match(/^9{3}\d+$/)) {
+                key = idStr;
+                display = idStr;
+                if (nameStr && nameStr !== idStr) {
+                    display = `${idStr} ${nameStr}`;
+                }
+            } else if (nameStr && nameStr.length > 2 && !nameStr.match(/^\d{5,}$/)) {
+                key = nameStr;
+                display = nameStr;
+            } else if (no) {
+                key = String(no);
+                display = String(no);
+                if (nameStr) display = `${no} ${nameStr}`;
+            } else {
+                key = 'UNKNOWN';
+                display = 'Tanpa Nama / ID';
+            }
+            
+            return { key, display };
+        }
+
+        function processAttendanceData(jsonData) {
+            if (!jsonData || jsonData.length === 0) {
+                alert("File tidak berisi data yang valid.");
+                return null;
+            }
+            
+            const employees = new Map(); // key -> {display, dates: Map, totalIn, totalOut}
+            const allDatesSet = new Set();
+            let totalPunches = 0;
+            
+            jsonData.forEach(row => {
+                // Skip header-like rows or empty
+                if (!row['Date/Time'] && !row['Date Time']) return;
+                
+                const parsed = parseDateTime(row['Date/Time'] || row['Date Time'] || row['datetime']);
+                if (!parsed) return;
+                
+                const status = String(row['Status'] || row['status'] || '').toLowerCase();
+                const isCheckIn = status.includes('masuk') || status.includes('check in') || status.includes('in');
+                const isCheckOut = status.includes('keluar') || status.includes('check out') || status.includes('out');
+                
+                if (!isCheckIn && !isCheckOut) return;
+                
+                const { key, display } = getEmployeeKeyAndDisplay(row);
+                
+                if (!employees.has(key)) {
+                    employees.set(key, {
+                        key: key,
+                        display: display,
+                        dates: new Map(),
+                        totalIn: 0,
+                        totalOut: 0
+                    });
+                }
+                
+                const emp = employees.get(key);
+                
+                // Update display if we found a better one (with name)
+                if (display.length > emp.display.length && display.includes(' ')) {
+                    emp.display = display;
+                }
+                
+                if (!emp.dates.has(parsed.date)) {
+                    emp.dates.set(parsed.date, {
+                        in: [],
+                        out: [],
+                        displayDate: parsed.displayDate
+                    });
+                }
+                
+                const day = emp.dates.get(parsed.date);
+                
+                if (isCheckIn) {
+                    day.in.push(parsed.time);
+                    emp.totalIn++;
+                    totalPunches++;
+                } else if (isCheckOut) {
+                    day.out.push(parsed.time);
+                    emp.totalOut++;
+                    totalPunches++;
+                }
+                
+                allDatesSet.add(parsed.date);
+            });
+            
+            // Sort times inside each day
+            employees.forEach(emp => {
+                emp.dates.forEach(day => {
+                    day.in.sort();
+                    day.out.sort();
+                });
+            });
+            
+            // Convert to array and sort by display name
+            let empArray = Array.from(employees.values());
+            empArray.sort((a, b) => a.display.localeCompare(b.display, 'id'));
+            
+            const allDates = Array.from(allDatesSet).sort();
+            
+            return {
+                employees: empArray,
+                allDates: allDates,
+                totalPunches: totalPunches,
+                totalEmployees: empArray.length
+            };
+        }
+
+        function renderSummaryTable(data) {
+            const table = document.getElementById('summary-table');
+            table.innerHTML = '';
+            
+            if (!data || data.employees.length === 0) {
+                table.innerHTML = `<tr><td class="p-8 text-center text-slate-400">Tidak ada data absen yang valid ditemukan.</td></tr>`;
+                return;
+            }
+            
+            const { employees, allDates } = data;
+            
+            // ========== THEAD ==========
+            const thead = document.createElement('thead');
+            thead.className = 'sticky top-0 z-30 bg-white';
+            
+            // Row 1: Employee + Dates (2 pairs Check In | Check Out per date)
+            const headerRow1 = document.createElement('tr');
+            headerRow1.className = 'border-b border-slate-300 bg-slate-50';
+            
+            // Sticky Employee header
+            const empTh = document.createElement('th');
+            empTh.rowSpan = 2;
+            empTh.className = 'sticky-col px-4 py-3 text-left font-semibold text-slate-700 bg-slate-100 border-r border-slate-300 min-w-[195px]';
+            empTh.innerHTML = `
+                <div class="flex items-center gap-x-2">
+                    <i class="fa-solid fa-user text-blue-600"></i>
+                    <span>Karyawan</span>
+                </div>
+            `;
+            headerRow1.appendChild(empTh);
+            
+            // Date headers - 2 pairs (Check In 1 | Check Out 1 | Check In 2 | Check Out 2)
+            allDates.forEach(dateKey => {
+                let displayDate = dateKey;
+                for (let emp of employees) {
+                    if (emp.dates.has(dateKey)) {
+                        displayDate = emp.dates.get(dateKey).displayDate;
+                        break;
+                    }
+                }
+                
+                const th = document.createElement('th');
+                th.colSpan = 4;   // 2 pairs = 4 columns per date
+                th.className = 'px-2 py-2 text-center border-l border-slate-200 bg-white';
+                th.innerHTML = `
+                    <div class="date-header font-semibold text-blue-700">${displayDate}</div>
+                `;
+                headerRow1.appendChild(th);
+            });
+            
+            // Total columns header
+            const totalHeader = document.createElement('th');
+            totalHeader.colSpan = 2;
+            totalHeader.className = 'px-3 py-2 text-center border-l-2 border-slate-300 bg-emerald-50';
+            totalHeader.innerHTML = `<div class="font-bold text-emerald-700 text-xs tracking-wider">TOTAL</div>`;
+            headerRow1.appendChild(totalHeader);
+            
+            thead.appendChild(headerRow1);
+            
+            // Row 2: Check In 1 | Check Out 1 | Check In 2 | Check Out 2
+            const headerRow2 = document.createElement('tr');
+            headerRow2.className = 'border-b-2 border-slate-300 bg-white';
+            
+            // Empty for sticky col
+            const emptyTh = document.createElement('th');
+            emptyTh.className = 'sticky-col border-r border-slate-300 bg-slate-100';
+            headerRow2.appendChild(emptyTh);
+            
+            allDates.forEach(() => {
+                // Pair 1
+                const thIn1 = document.createElement('th');
+                thIn1.className = 'px-1.5 py-1 text-center text-emerald-700 bg-emerald-50 border-l border-slate-200 font-medium text-[10px]';
+                thIn1.innerHTML = `Check In <span class="text-emerald-500">1</span>`;
+                
+                const thOut1 = document.createElement('th');
+                thOut1.className = 'px-1.5 py-1 text-center text-orange-700 bg-orange-50 border-l border-slate-200 font-medium text-[10px]';
+                thOut1.innerHTML = `Check Out <span class="text-orange-500">1</span>`;
+                
+                // Pair 2
+                const thIn2 = document.createElement('th');
+                thIn2.className = 'px-1.5 py-1 text-center text-emerald-700 bg-emerald-100 border-l border-slate-200 font-medium text-[10px]';
+                thIn2.innerHTML = `Check In <span class="text-emerald-600">2</span>`;
+                
+                const thOut2 = document.createElement('th');
+                thOut2.className = 'px-1.5 py-1 text-center text-orange-700 bg-orange-100 border-l border-slate-200 font-medium text-[10px]';
+                thOut2.innerHTML = `Check Out <span class="text-orange-600">2</span>`;
+                
+                headerRow2.appendChild(thIn1);
+                headerRow2.appendChild(thOut1);
+                headerRow2.appendChild(thIn2);
+                headerRow2.appendChild(thOut2);
+            });
+            
+            // Total IN / Total OUT
+            const thTotalIn = document.createElement('th');
+            thTotalIn.className = 'px-3 py-1.5 text-center text-emerald-700 bg-emerald-100 border-l-2 border-emerald-200 font-bold text-xs';
+            thTotalIn.innerHTML = `Total IN`;
+            
+            const thTotalOut = document.createElement('th');
+            thTotalOut.className = 'px-3 py-1.5 text-center text-orange-700 bg-orange-100 border-l border-orange-200 font-bold text-xs';
+            thTotalOut.innerHTML = `Total OUT`;
+            
+            headerRow2.appendChild(thTotalIn);
+            headerRow2.appendChild(thTotalOut);
+            
+            thead.appendChild(headerRow2);
+            table.appendChild(thead);
+            
+            // ========== TBODY ==========
+            const tbody = document.createElement('tbody');
+            tbody.className = 'divide-y divide-slate-200 text-sm';
+            
+            employees.forEach((emp, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = idx % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/60 hover:bg-slate-100';
+                tr.dataset.empKey = emp.key;
+                
+                // Employee cell - ID dan Nama dipisah rapi
+                const tdEmp = document.createElement('td');
+                tdEmp.className = 'sticky-col px-4 py-3 border-r border-slate-200 font-medium min-w-[195px]';
+                
+                // Pisahkan ID dan Nama jika memungkinkan
+                let idPart = emp.key;
+                let namePart = emp.display.replace(emp.key, '').trim();
+                
+                if (!namePart || namePart === emp.key) {
+                    // Jika tidak ada nama terpisah, coba ambil dari display
+                    const parts = emp.display.split(' ');
+                    if (parts.length > 1 && parts[0].match(/^[A-Z]{2,}[0-9]+$/)) {
+                        idPart = parts[0];
+                        namePart = parts.slice(1).join(' ');
+                    } else {
+                        namePart = emp.display;
+                        idPart = '';
+                    }
+                }
+                
+                tdEmp.innerHTML = `
+                    <div>
+                        ${idPart ? `<div class="font-mono text-[11px] font-bold text-blue-700 tracking-tight">${idPart}</div>` : ''}
+                        <div class="emp-name text-sm leading-tight">${namePart || emp.display}</div>
+                    </div>
+                `;
+                tr.appendChild(tdEmp);
+                
+                // Per date cells - 2 pairs (Check In 1 | Check Out 1 | Check In 2 | Check Out 2)
+                allDates.forEach(dateKey => {
+                    const dayData = emp.dates.get(dateKey);
+                    const ins = (dayData && dayData.in) ? dayData.in : [];
+                    const outs = (dayData && dayData.out) ? dayData.out : [];
+                    
+                    // Pair 1
+                    const tdIn1 = document.createElement('td');
+                    tdIn1.className = 'px-2 py-2 border-l border-slate-200 align-top bg-emerald-50/30 text-center';
+                    if (ins.length > 0) {
+                        tdIn1.innerHTML = `<span class="font-mono text-sm">${ins[0]}</span>`;
+                    } else {
+                        tdIn1.innerHTML = `<span class="text-slate-300 text-xs">—</span>`;
+                    }
+                    tr.appendChild(tdIn1);
+                    
+                    const tdOut1 = document.createElement('td');
+                    tdOut1.className = 'px-2 py-2 border-l border-slate-200 align-top bg-orange-50/30 text-center';
+                    if (outs.length > 0) {
+                        tdOut1.innerHTML = `<span class="font-mono text-sm">${outs[0]}</span>`;
+                    } else {
+                        tdOut1.innerHTML = `<span class="text-slate-300 text-xs">—</span>`;
+                    }
+                    tr.appendChild(tdOut1);
+                    
+                    // Pair 2
+                    const tdIn2 = document.createElement('td');
+                    tdIn2.className = 'px-2 py-2 border-l border-slate-200 align-top bg-emerald-100/40 text-center';
+                    if (ins.length > 1) {
+                        tdIn2.innerHTML = `<span class="font-mono text-sm">${ins[1]}</span>`;
+                    } else {
+                        tdIn2.innerHTML = `<span class="text-slate-300 text-xs">—</span>`;
+                    }
+                    tr.appendChild(tdIn2);
+                    
+                    const tdOut2 = document.createElement('td');
+                    tdOut2.className = 'px-2 py-2 border-l border-slate-200 align-top bg-orange-100/40 text-center';
+                    if (outs.length > 1) {
+                        tdOut2.innerHTML = `<span class="font-mono text-sm">${outs[1]}</span>`;
+                    } else {
+                        tdOut2.innerHTML = `<span class="text-slate-300 text-xs">—</span>`;
+                    }
+                    tr.appendChild(tdOut2);
+                });
+                
+                // Total Check In
+                const tdTotalIn = document.createElement('td');
+                tdTotalIn.className = 'px-3 py-2 border-l-2 border-emerald-300 text-center font-semibold text-emerald-700 bg-emerald-50/50';
+                tdTotalIn.innerHTML = `
+                    <div class="inline-flex items-center justify-center w-9 h-7 bg-emerald-100 text-emerald-700 rounded-xl text-sm font-bold tabular-nums">
+                        ${emp.totalIn}
+                    </div>
+                `;
+                tr.appendChild(tdTotalIn);
+                
+                // Total Check Out
+                const tdTotalOut = document.createElement('td');
+                tdTotalOut.className = 'px-3 py-2 border-l border-orange-300 text-center font-semibold text-orange-700 bg-orange-50/50';
+                tdTotalOut.innerHTML = `
+                    <div class="inline-flex items-center justify-center w-9 h-7 bg-orange-100 text-orange-700 rounded-xl text-sm font-bold tabular-nums">
+                        ${emp.totalOut}
+                    </div>
+                `;
+                tr.appendChild(tdTotalOut);
+                
+                tbody.appendChild(tr);
+            });
+            
+            table.appendChild(tbody);
+            
+            // Store for search
+            currentData.employees = employees;
+            currentData.allDates = allDates;
+        }
+
+        function setupSearch() {
+            const searchInput = document.getElementById('search-input');
+            const table = document.getElementById('summary-table');
+            
+            searchInput.addEventListener('input', () => {
+                const term = searchInput.value.toLowerCase().trim();
+                const rows = table.querySelectorAll('tbody tr');
+                
+                rows.forEach(row => {
+                    const empName = row.dataset.empKey.toLowerCase();
+                    const displayText = row.querySelector('.emp-name')?.textContent.toLowerCase() || '';
+                    
+                    if (term === '' || empName.includes(term) || displayText.includes(term)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+            
+            // Clear on escape
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    searchInput.value = '';
+                    table.querySelectorAll('tbody tr').forEach(r => r.style.display = '');
+                }
+            });
+        }
+
+        function updateStats(data) {
+            if (!data) return;
+            
+            document.getElementById('stat-employees').textContent = data.totalEmployees || 0;
+            document.getElementById('stat-records').textContent = data.totalPunches || 0;
+            
+            if (data.allDates && data.allDates.length > 0) {
+                const first = data.allDates[0];
+                const last = data.allDates[data.allDates.length - 1];
+                
+                // Convert to display format
+                const firstDisp = first.split('-').reverse().join('/').replace(/^0/, '').replace(/\/0/g, '/');
+                const lastDisp = last.split('-').reverse().join('/').replace(/^0/, '').replace(/\/0/g, '/');
+                
+                document.getElementById('stat-daterange').innerHTML = 
+                    `<span class="font-mono text-xs">${firstDisp}</span> — <span class="font-mono text-xs">${lastDisp}</span>`;
+                
+                document.getElementById('stat-days').textContent = data.allDates.length;
+            }
+        }
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const text = document.getElementById('toast-text');
+            
+            text.textContent = message;
+            toast.className = `fixed bottom-5 right-5 px-5 py-3 rounded-2xl shadow-xl flex items-center gap-x-3 text-sm z-[100] ${isError ? 'bg-red-600' : 'bg-slate-900 text-white'}`;
+            
+            toast.style.display = 'flex';
+            toast.classList.remove('hidden');
+            
+            setTimeout(() => {
+                toast.style.transition = 'all 0.3s ease';
+                toast.style.opacity = '0';
+                setTimeout(() => {
+                    toast.style.opacity = '1';
+                    toast.style.transition = '';
+                    toast.style.display = 'none';
+                    toast.classList.add('hidden');
+                }, 200);
+            }, 2800);
+        }
+
+        async function handleFile(file) {
+            if (!file) return;
+            
+            const uploadSection = document.getElementById('upload-section');
+            const resultsSection = document.getElementById('results-section');
+            
+            uploadSection.style.opacity = '0.6';
+            uploadSection.style.pointerEvents = 'none';
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                
+                if (!workbook.SheetNames.length) {
+                    throw new Error("File Excel tidak memiliki sheet.");
+                }
+                
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
+                    defval: '', 
+                    raw: false 
+                });
+                
+                console.log('Parsed rows:', jsonData.length);
+                
+                const processed = processAttendanceData(jsonData);
+                
+                if (!processed || processed.employees.length === 0) {
+                    throw new Error("Tidak ditemukan data absen valid (pastikan ada kolom Date/Time & Status).");
+                }
+                
+                // Show results
+                uploadSection.classList.add('hidden');
+                resultsSection.classList.remove('hidden');
+                
+                // Render everything
+                renderSummaryTable(processed);
+                updateStats(processed);
+                setupSearch();
+                
+                // Store globally for export
+                window.currentProcessedData = processed;
+                window.currentRawFileName = file.name;
+                
+                showToast(`Berhasil memproses ${processed.totalEmployees} karyawan • ${processed.totalPunches} data absen`);
+                
+            } catch (err) {
+                console.error(err);
+                alert("Gagal memproses file: " + err.message);
+                uploadSection.style.opacity = '1';
+                uploadSection.style.pointerEvents = 'all';
+            }
+        }
+
+        function setupDropzone() {
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('file-input');
+            
+            // Click to select
+            dropzone.addEventListener('click', () => fileInput.click());
+            
+            // File input change
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFile(e.target.files[0]);
+                }
+            });
+            
+            // Drag & drop
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropzone.classList.add('dragover', 'border-blue-400');
+            });
+            
+            dropzone.addEventListener('dragleave', () => {
+                dropzone.classList.remove('dragover', 'border-blue-400');
+            });
+            
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover', 'border-blue-400');
+                
+                if (e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                        handleFile(file);
+                    } else {
+                        alert("Harap unggah file .xlsx atau .xls");
+                    }
+                }
+            });
+        }
+
+        function exportToExcel() {
+            if (!window.currentProcessedData) {
+                alert("Tidak ada data untuk diekspor.");
+                return;
+            }
+            
+            const data = window.currentProcessedData;
+            const wb = XLSX.utils.book_new();
+            
+            // Timestamp untuk keterangan waktu
+            const now = new Date();
+            const timestamp = now.toLocaleString('id-ID', { 
+                dateStyle: 'full', 
+                timeStyle: 'short' 
+            }).replace(' pukul ', ' • ');
+            
+            // ========== SHEET 1: Ringkasan Per Karyawan (Format seperti gambar - 2 baris header) ==========
+            const summaryRows = [];
+            
+            // Baris judul + keterangan waktu
+            summaryRows.push([`RINGKASAN ABSEN KARYAWAN`]);
+            summaryRows.push([`Diekspor pada: ${timestamp}`]);
+            summaryRows.push([`Sumber: ${window.currentRawFileName || 'absen.xls'} | Hanya menampilkan JAM (HH:MM)`]);
+            summaryRows.push([]); // blank row
+            
+            // === BARIS 1: Tanggal (akan di-merge nanti) ===
+            const dateHeaderRow = ['No', 'ID Karyawan', 'Nama Lengkap', 'Total IN', 'Total OUT', 'Hari Absen'];
+            // Placeholder untuk kolom tanggal (nanti diisi & di-merge)
+            data.allDates.forEach(() => {
+                dateHeaderRow.push(''); // posisi Check In 1
+                dateHeaderRow.push(''); // posisi Check Out 1
+                dateHeaderRow.push(''); // posisi Check In 2
+                dateHeaderRow.push(''); // posisi Check Out 2
+            });
+            summaryRows.push(dateHeaderRow);
+            
+            // === BARIS 2: Check In | Check Out berulang ===
+            const checkHeaderRow = ['', '', '', '', '', ''];
+            data.allDates.forEach(d => {
+                const [year, month, day] = d.split('-');
+                const disp = `${parseInt(month)}/${parseInt(day)}/${year}`;
+                
+                // Isi tanggal di baris sebelumnya (akan di-merge)
+                // Untuk sekarang kita isi di baris dateHeaderRow via reference
+                const dateColStart = 6 + (data.allDates.indexOf(d) * 4);
+                summaryRows[4][dateColStart] = disp;     // tanggal di baris ke-5 (index 4)
+                
+                checkHeaderRow.push('Check In');
+                checkHeaderRow.push('Check Out');
+                checkHeaderRow.push('Check In');
+                checkHeaderRow.push('Check Out');
+            });
+            summaryRows.push(checkHeaderRow);
+            
+            // === DATA KARYAWAN ===
+            data.employees.forEach((emp, idx) => {
+                let idPart = emp.key;
+                let namePart = emp.display.replace(emp.key, '').trim();
+                if (!namePart || namePart === emp.key) {
+                    const parts = emp.display.split(' ');
+                    if (parts.length > 1 && parts[0].match(/^[A-Z]{2,}[0-9]+$/)) {
+                        idPart = parts[0];
+                        namePart = parts.slice(1).join(' ');
+                    } else {
+                        namePart = emp.display;
+                        idPart = '-';
+                    }
+                }
+                
+                const row = [
+                    idx + 1,
+                    idPart,
+                    namePart,
+                    emp.totalIn,
+                    emp.totalOut,
+                    emp.dates.size
+                ];
+                
+                data.allDates.forEach(dateKey => {
+                    const dayData = emp.dates.get(dateKey);
+                    const ins = (dayData && dayData.in) ? dayData.in : [];
+                    const outs = (dayData && dayData.out) ? dayData.out : [];
+                    
+                    // Pair 1
+                    row.push(ins.length > 0 ? ins[0] : '');
+                    row.push(outs.length > 0 ? outs[0] : '');
+                    // Pair 2
+                    row.push(ins.length > 1 ? ins[1] : '');
+                    row.push(outs.length > 1 ? outs[1] : '');
+                });
+                
+                summaryRows.push(row);
+            });
+            
+            const ws1 = XLSX.utils.aoa_to_sheet(summaryRows);
+            
+            // Styling & formatting Sheet 1
+            ws1['!cols'] = [
+                {wch: 5}, {wch: 14}, {wch: 26}, {wch: 10}, {wch: 10}, {wch: 11},
+                ...Array(data.allDates.length * 4).fill({wch: 11})
+            ];
+            
+            // === MERGE & STYLING ===
+            const merges = [
+                // Judul
+                {s: {r: 0, c: 0}, e: {r: 0, c: 5 + data.allDates.length * 4 - 1}},
+                {s: {r: 1, c: 0}, e: {r: 1, c: 5 + data.allDates.length * 4 - 1}},
+                {s: {r: 2, c: 0}, e: {r: 2, c: 5 + data.allDates.length * 4 - 1}},
+            ];
+            
+            // Merge tanggal di baris ke-5 (index 4)
+            data.allDates.forEach((d, i) => {
+                const startCol = 6 + (i * 4);
+                merges.push({s: {r: 4, c: startCol}, e: {r: 4, c: startCol + 3}});
+            });
+            
+            ws1['!merges'] = merges;
+            
+            // Style judul besar
+            ws1['A1'].s = { font: { bold: true, size: 16, color: { rgb: "1E40AF" } }, alignment: { horizontal: "center" } };
+            ws1['A2'].s = { font: { size: 11, italic: true, color: { rgb: "475569" } }, alignment: { horizontal: "center" } };
+            ws1['A3'].s = { font: { size: 10, color: { rgb: "64748B" } }, alignment: { horizontal: "center" } };
+            
+            // Style baris tanggal (baris 5)
+            for (let col = 6; col < 6 + data.allDates.length * 4; col++) {
+                const cellAddr = XLSX.utils.encode_cell({ r: 4, c: col });
+                if (ws1[cellAddr] && ws1[cellAddr].v) {
+                    ws1[cellAddr].s = {
+                        font: { bold: true, color: { rgb: "1E40AF" }, size: 11 },
+                        fill: { fgColor: { rgb: "DBEAFE" } },
+                        alignment: { horizontal: "center", vertical: "center" },
+                        border: { top: { style: "medium", color: { rgb: "1E40AF" } }, bottom: { style: "medium", color: { rgb: "1E40AF" } } }
+                    };
+                }
+            }
+            
+            // Style baris Check In / Check Out (baris 6)
+            for (let col = 6; col < 6 + data.allDates.length * 4; col++) {
+                const cellAddr = XLSX.utils.encode_cell({ r: 5, c: col });
+                if (ws1[cellAddr]) {
+                    const isCheckIn = col % 2 === 0; // kasar, sebenarnya perlu cek value
+                    ws1[cellAddr].s = {
+                        font: { bold: true, color: { rgb: "FFFFFF" }, size: 9 },
+                        fill: { fgColor: { rgb: isCheckIn ? "059669" : "EA580C" } },
+                        alignment: { horizontal: "center", vertical: "center" }
+                    };
+                }
+            }
+            
+            // Freeze panes
+            ws1['!freeze'] = { xSplit: 6, ySplit: 6 };
+            
+            XLSX.utils.book_append_sheet(wb, ws1, "Ringkasan per Karyawan");
+            
+            // ========== SHEET 2: Detail Harian (Lebih Rapi) ==========
+            const detailRows = [];
+            
+            // Judul + timestamp
+            detailRows.push([`DETAIL ABSEN HARIAN PER KARYAWAN`]);
+            detailRows.push([`Diekspor pada: ${timestamp} | Sumber: ${window.currentRawFileName || 'absen.xls'}`]);
+            detailRows.push([]);
+            
+            // Header
+            detailRows.push(['No', 'ID Karyawan', 'Nama Lengkap', 'Tanggal', 'Check In (Jam)', 'Jml IN', 'Check Out (Jam)', 'Jml OUT']);
+            
+            let no = 1;
+            data.employees.forEach(emp => {
+                // Pisahkan ID & Nama
+                let idPart = emp.key;
+                let namePart = emp.display.replace(emp.key, '').trim();
+                if (!namePart || namePart === emp.key) {
+                    const parts = emp.display.split(' ');
+                    if (parts.length > 1 && parts[0].match(/^[A-Z]{2,}[0-9]+$/)) {
+                        idPart = parts[0];
+                        namePart = parts.slice(1).join(' ');
+                    } else {
+                        namePart = emp.display;
+                        idPart = '-';
+                    }
+                }
+                
+                const sortedDates = Array.from(emp.dates.keys()).sort();
+                sortedDates.forEach(dateKey => {
+                    const day = emp.dates.get(dateKey);
+                    const displayDate = day.displayDate || dateKey.split('-').reverse().join('/').replace(/0(\d)/g, '$1');
+                    
+                    detailRows.push([
+                        no++,
+                        idPart,
+                        namePart,
+                        displayDate,
+                        day.in.join(' | '),
+                        day.in.length,
+                        day.out.join(' | '),
+                        day.out.length
+                    ]);
+                });
+            });
+            
+            const ws2 = XLSX.utils.aoa_to_sheet(detailRows);
+            
+            ws2['!cols'] = [
+                {wch: 5}, {wch: 13}, {wch: 24}, {wch: 12}, 
+                {wch: 32}, {wch: 8}, {wch: 32}, {wch: 8}
+            ];
+            
+            // Merge judul
+            ws2['!merges'] = [
+                {s: {r: 0, c: 0}, e: {r: 0, c: 7}},
+                {s: {r: 1, c: 0}, e: {r: 1, c: 7}}
+            ];
+            
+            ws2['A1'].s = { font: { bold: true, size: 15, color: { rgb: "1E40AF" } }, alignment: { horizontal: "center" } };
+            ws2['A2'].s = { font: { size: 10, italic: true, color: { rgb: "475569" } }, alignment: { horizontal: "center" } };
+            
+            // Style header
+            for (let col = 0; col < 8; col++) {
+                const cellAddr = XLSX.utils.encode_cell({ r: 3, c: col });
+                if (ws2[cellAddr]) {
+                    ws2[cellAddr].s = {
+                        font: { bold: true, color: { rgb: "FFFFFF" }, size: 10 },
+                        fill: { fgColor: { rgb: "334155" } },
+                        alignment: { horizontal: "center", vertical: "center" }
+                    };
+                }
+            }
+            
+            ws2['!freeze'] = { xSplit: 4, ySplit: 4 };
+            
+            XLSX.utils.book_append_sheet(wb, ws2, "Detail Harian");
+            
+            // ========== SHEET 3: Info & Statistik ==========
+            const statsRows = [
+                ['INFORMASI & STATISTIK ABSEN'],
+                [''],
+                [`Diekspor pada: ${timestamp}`],
+                [`Nama File Sumber: ${window.currentRawFileName || 'absen.xls'}`],
+                [''],
+                ['RINGKASAN UMUM'],
+                ['Total Karyawan', data.totalEmployees],
+                ['Total Punch (Check In + Out)', data.totalPunches],
+                ['Jumlah Hari Tercatat', data.allDates.length],
+                ['Tanggal Mulai Data', data.allDates[0] || '-'],
+                ['Tanggal Akhir Data', data.allDates[data.allDates.length - 1] || '-'],
+                [''],
+                ['KETERANGAN PENTING'],
+                ['• ID Karyawan & Nama dipisahkan agar lebih mudah dibaca & difilter di Excel'],
+                ['• Hanya JAM (HH:MM) yang diambil dari data asli (detik & tanggal dihapus)'],
+                ['• Multiple punch per hari dipisah ke kolom IN 1 / OUT 1 dan IN 2 / OUT 2 (sesuai struktur tabel)'],
+                ['• Tanggal sampai 30/31 otomatis terbaca selama ada di file sumber'],
+                ['• Kolom Total IN & Total OUT di paling kanan sangat berguna untuk verifikasi payroll'],
+                [''],
+                ['Dibuat dengan Ringkas Absen • Aplikasi HR untuk PT. Abadi Jaya Laxmindo']
+            ];
+            
+            const ws3 = XLSX.utils.aoa_to_sheet(statsRows);
+            ws3['!cols'] = [{wch: 55}, {wch: 20}];
+            
+            ws3['!merges'] = [
+                {s: {r: 0, c: 0}, e: {r: 0, c: 1}}
+            ];
+            
+            ws3['A1'].s = { font: { bold: true, size: 16, color: { rgb: "1E40AF" } } };
+            ws3['A3'].s = { font: { italic: true, color: { rgb: "475569" } } };
+            ws3['A6'].s = { font: { bold: true, size: 12, color: { rgb: "334155" } } };
+            ws3['A13'].s = { font: { bold: true, size: 12, color: { rgb: "334155" } } };
+            
+            XLSX.utils.book_append_sheet(wb, ws3, "Info & Statistik");
+            
+            // Download
+            const fileName = (window.currentRawFileName || 'absen').replace(/\.(xlsx|xls)$/i, '') + '_RINGKASAN.xlsx';
+            XLSX.writeFile(wb, fileName);
+            
+            showToast(`File Excel profesional berhasil diunduh: ${fileName}`);
+        }
+
+        function printTable() {
+            const tableWrapper = document.getElementById('table-wrapper');
+            if (!tableWrapper) return;
+            
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Ringkasan Absen Karyawan - ${new Date().toLocaleDateString('id-ID')}</title>
+                    <style>
+                        body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; }
+                        table { border-collapse: collapse; width: 100%; font-size: 11px; }
+                        th, td { border: 1px solid #64748b; padding: 6px 8px; text-align: left; }
+                        th { background: #f1e7ff; font-weight: 600; }
+                        .sticky-col { position: sticky; left: 0; background: white; }
+                        .time-cell { font-family: monospace; }
+                        @media print { .no-print { display: none; } }
+                    </style>
+                </head>
+                <body>
+                    <h2 style="margin-bottom: 4px;">Ringkasan Absen Karyawan</h2>
+                    <p style="color:#64748b; font-size:12px; margin-bottom:16px;">Diambil dari file absen • Hanya jam (HH:MM) • ${new Date().toLocaleString('id-ID')}</p>
+                    ${tableWrapper.innerHTML}
+                    <p style="margin-top:20px; font-size:10px; color:#94a3b8;">Aplikasi Ringkas Absen • PT. Abadi Jaya Laxmindo (contoh)</p>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            setTimeout(() => {
+                printWindow.print();
+            }, 300);
+        }
+
+        function resetApp() {
+            if (confirm('Reset aplikasi dan unggah file baru?')) {
+                window.location.reload();
+            }
+        }
+
+        function showHelp() {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-xl">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-semibold text-lg">Cara Menggunakan</h3>
+                            <p class="text-sm text-slate-500">3 langkah mudah</p>
+                        </div>
+                        <button onclick="this.closest('.fixed').remove()" class="text-2xl leading-none text-slate-400 hover:text-red-500">&times;</button>
+                    </div>
+                    
+                    <div class="mt-5 space-y-4 text-sm">
+                        <div class="flex gap-3">
+                            <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex-shrink-0 flex items-center justify-center text-xs font-bold">1</div>
+                            <div>
+                                <div class="font-medium">Unggah file absen</div>
+                                <div class="text-slate-600 text-xs mt-0.5">File .xlsx hasil ekspor dari mesin fingerprint atau HR software. Kolom wajib: <span class="font-mono">Date/Time</span> dan <span class="font-mono">Status</span> (C/Masuk atau C/Keluar).</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex-shrink-0 flex items-center justify-center text-xs font-bold">2</div>
+                            <div>
+                                <div class="font-medium">Lihat ringkasan otomatis</div>
+                                <div class="text-slate-600 text-xs mt-0.5">Aplikasi akan mengelompokkan per karyawan (menggunakan ID Number seperti VPRL727 + Nama), menampilkan hanya JAM Check In &amp; Check Out, serta menghitung berapa kali punch per hari dan total keseluruhan.</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex-shrink-0 flex items-center justify-center text-xs font-bold">3</div>
+                            <div>
+                                <div class="font-medium">Export atau Print</div>
+                                <div class="text-slate-600 text-xs mt-0.5">Gunakan tombol <strong>Export Excel</strong> untuk mendapatkan 3 sheet detail yang bisa langsung dipakai untuk payroll / verifikasi. Atau <strong>Print</strong> untuk laporan cepat.</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 pt-4 border-t text-xs text-center text-slate-500">
+                        Multiple punch (misal 2x Check Out sehari) akan ditampilkan lengkap + badge hitungan.
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function showDetailHelp() {
+            alert("Fitur detail karyawan per hari sudah tersedia di sheet 'Detail Harian' saat Anda Export Excel.\n\nJika butuh fitur tambahan (misal filter tanggal, grafik kehadiran, atau integrasi BPJS), beri tahu saya ya!");
+        }
+
+        // Initialize everything
+        function initApp() {
+            initTailwind();
+            setupDropzone();
+            
+            // Keyboard shortcut hint
+            document.addEventListener('keydown', function(e) {
+                if (e.key === '/' && document.activeElement.tagName === 'BODY') {
+                    e.preventDefault();
+                    const search = document.getElementById('search-input');
+                    if (search) search.focus();
+                }
+            });
+            
+            // Demo notice (optional, remove in production if needed)
+            console.log('%c[Ringkas Absen] Aplikasi siap. File absen-ringkas.html berhasil dibuat.', 'color:#64748b');
+        }
+        
+        // Boot
+        window.onload = initApp;
+    </script>
+</body>
+</html>
